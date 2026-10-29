@@ -88,7 +88,11 @@ async def list_recurring_transactions(
         "and `transaction_count`. A `transaction_count` of 0 means the "
         "holding has no ledger, so its cost fields are null — answer 'how "
         "much did I pay for X?' from these fields, and use "
-        "list_asset_transactions for the individual buys and sells."
+        "list_asset_transactions for the individual buys and sells. Every "
+        "money field is in that holding's own `currency`, so do NOT add "
+        "them up across holdings unless the currencies match: a portfolio "
+        "mixing EUR and USD needs converting first, and summing as-is "
+        "silently reports a 1:1 total."
     ),
     parameters={
         "type": "object",
@@ -174,7 +178,10 @@ async def list_asset_transactions(
         ws_id,
         asset_id=parse_uuid(asset_id),
         ticker=ticker,
-        kind=kind,
+        # The service drops a kind it does not recognise, which would hand
+        # back an unfiltered list that looks filtered. Normalise the casing
+        # an LLM is likely to send rather than let "Buy" silently widen it.
+        kind=kind.lower() if kind else None,
         from_date=parse_date(from_date),
         to_date=parse_date(to_date),
         limit=max(1, min(int(limit), 500)),

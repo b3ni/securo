@@ -150,6 +150,20 @@ async def test_ledger_filters_by_kind_and_ticker(
     assert (await handler(session=session, ctx=ctx, ticker="PETR4.SA"))["total"] == 0
 
 
+async def test_ledger_kind_casing_does_not_widen_the_filter(
+    session: AsyncSession, ctx: CallContext, test_workspace, holding: Asset
+):
+    """The service drops a kind it does not recognise, which would return
+    everything while looking filtered. Casing must not trigger that."""
+    await _buy(session, test_workspace, holding, "10", "20", date(2026, 1, 1))
+    await _buy(session, test_workspace, holding, "4", "30", date(2026, 3, 1), kind="sell")
+    handler = REGISTRY["list_asset_transactions"].handler
+
+    for spelling in ("sell", "Sell", "SELL"):
+        r = await handler(session=session, ctx=ctx, kind=spelling)
+        assert [t["kind"] for t in r["items"]] == ["sell"], spelling
+
+
 async def test_ledger_filters_by_asset_id(
     session: AsyncSession, ctx: CallContext, test_workspace, holding: Asset
 ):
